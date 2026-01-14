@@ -296,6 +296,7 @@ func (r *CertificateResource) requestCloudflareOriginCert(domainName, csrPEM str
 	if !cfResp.Success {
 		errMsg := "unknown error"
 		if len(cfResp.Errors) > 0 {
+			errMsg = ""
 			for _, err := range cfResp.Errors {
 				errMsg += fmt.Sprintf("%s; ", err.Message)
 			}
