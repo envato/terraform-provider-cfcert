@@ -117,9 +117,10 @@ func (p *CertificateProvider) Configure(ctx context.Context, req provider.Config
 	}
 
 	clients := &ProviderClients{
-		ACMClient:          acm.NewFromConfig(cfg),
-		CloudflareAPIToken: cloudflareToken,
-		Region:             region,
+		ACMClient:                 acm.NewFromConfig(cfg),
+		CloudflareAPIToken:        cloudflareToken,
+		CloudflareServiceAPIToken: cloudflareServiceToken,
+		Region:                    region,
 	}
 
 	resp.DataSourceData = clients
