@@ -20,14 +20,16 @@ type CertificateProvider struct {
 }
 
 type CertificateProviderModel struct {
-	Region             types.String `tfsdk:"region"`
-	CloudflareAPIToken types.String `tfsdk:"cloudflare_api_token"`
+	Region                    types.String `tfsdk:"region"`
+	CloudflareAPIToken        types.String `tfsdk:"cloudflare_api_token"`
+	CloudflareServiceAPIToken types.String `tfsdk:"cloudflare_service_api_token"`
 }
 
 type ProviderClients struct {
-	ACMClient          *acm.Client
-	CloudflareAPIToken string
-	Region             string
+	ACMClient                 *acm.Client
+	CloudflareAPIToken        string
+	CloudflareServiceAPIToken string
+	Region                    string
 }
 
 func New(version string) func() provider.Provider {
@@ -56,6 +58,11 @@ func (p *CertificateProvider) Schema(ctx context.Context, req provider.SchemaReq
 				Optional:    true,
 				Sensitive:   true,
 			},
+			"cloudflare_service_api_token": schema.StringAttribute{
+				Description: "Cloudflare Service API token with Origin CA permissions. Can also be set via CLOUDFLARE_SERVICE_API_TOKEN environment variable.",
+				Optional:    true,
+				Sensitive:   true,
+			},
 		},
 	}
 }
@@ -77,6 +84,11 @@ func (p *CertificateProvider) Configure(ctx context.Context, req provider.Config
 		cloudflareToken = data.CloudflareAPIToken.ValueString()
 	}
 
+	cloudflareServiceToken := os.Getenv("CLOUDFLARE_SERVICE_API_TOKEN")
+	if !data.CloudflareServiceAPIToken.IsNull() && data.CloudflareServiceAPIToken.ValueString() != "" {
+		cloudflareServiceToken = data.CloudflareServiceAPIToken.ValueString()
+	}
+
 	if region == "" {
 		resp.Diagnostics.AddError(
 			"Missing AWS Region",
@@ -84,10 +96,10 @@ func (p *CertificateProvider) Configure(ctx context.Context, req provider.Config
 		)
 	}
 
-	if cloudflareToken == "" {
+	if cloudflareToken == "" && cloudflareServiceToken == "" {
 		resp.Diagnostics.AddError(
-			"Missing Cloudflare API Token",
-			"Cloudflare API token must be set via the cloudflare_api_token attribute or CLOUDFLARE_API_TOKEN environment variable.",
+			"Missing Cloudflare API or Service Token",
+			"Cloudflare API or Service token must be set via the cloudflare_api_token or cloudflare_service_api_token attributes or CLOUDFLARE_API_TOKEN or CLOUDFLARE_SERVICE_API_TOKEN environment variables.",
 		)
 	}
 

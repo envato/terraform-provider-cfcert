@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
@@ -267,7 +268,13 @@ func (r *CertificateResource) requestCloudflareOriginCert(domainName, csrPEM str
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+r.clients.CloudflareAPIToken)
+	if r.clients.CloudflareAPIToken != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+r.clients.CloudflareAPIToken)
+	} else if r.clients.CloudflareServiceAPIToken != "" {
+		httpReq.Header.Set("X-Auth-User-Service-Key", r.clients.CloudflareServiceAPIToken)
+	} else {
+		return "", fmt.Errorf("no Cloudflare API token provided")
+	}
 
 	client := &http.Client{}
 	httpResp, err := client.Do(httpReq)
@@ -289,7 +296,10 @@ func (r *CertificateResource) requestCloudflareOriginCert(domainName, csrPEM str
 	if !cfResp.Success {
 		errMsg := "unknown error"
 		if len(cfResp.Errors) > 0 {
-			errMsg = cfResp.Errors[0].Message
+			for _, err := range cfResp.Errors {
+				errMsg += fmt.Sprintf("%s; ", err.Message)
+			}
+			errMsg = strings.TrimSuffix(errMsg, "; ")
 		}
 		return "", fmt.Errorf("cloudflare API error: %s", errMsg)
 	}
