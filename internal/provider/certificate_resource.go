@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
@@ -199,12 +200,25 @@ func (r *CertificateResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	_, err := r.clients.ACMClient.DeleteCertificate(ctx, &acm.DeleteCertificateInput{
-		CertificateArn: aws.String(arn),
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to delete certificate", err.Error())
-		return
+	const maxWait = 60 * time.Second
+	deadline := time.Now().Add(maxWait)
+	backoff := 5 * time.Second
+
+	for {
+		_, err := r.clients.ACMClient.DeleteCertificate(ctx, &acm.DeleteCertificateInput{
+			CertificateArn: aws.String(arn),
+		})
+		if err == nil {
+			return
+		}
+		if !isResourceInUseError(err) || time.Now().After(deadline) {
+			resp.Diagnostics.AddError("Failed to delete certificate", err.Error())
+			return
+		}
+		time.Sleep(backoff)
+		if backoff < 15*time.Second {
+			backoff += 5 * time.Second
+		}
 	}
 }
 
@@ -230,6 +244,10 @@ func (r *CertificateResource) findExistingCertificate(ctx context.Context, domai
 		}
 	}
 	return "", nil
+}
+
+func isResourceInUseError(err error) bool {
+	return strings.Contains(err.Error(), "ResourceInUseException")
 }
 
 type cloudflareOriginCertRequest struct {
